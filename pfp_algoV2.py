@@ -170,3 +170,17 @@ parse_fasta: Parses a FASTA file and returns a dictionary of sequences indexed b
 This method provides quick access to specific sequences, facilitating efficient data manipulation and analysis.
 
 '''
+
+
+'''
+SOURCES:
+
+https://biopython.org/DIST/docs/tutorial/Tutorial-1.83.pdf
+https://github.com/marco-oliva/pfp/blob/master/pfp%2B%2B.cpp
+https://en.wikipedia.org/wiki/Rabin%E2%80%93Karp_algorithm
+chat.openai.com for some C++ conversions
+https://brilliant.org/wiki/rabin-karp-algorithm/#:~:text=The%20Rabin%2DKarp%20algorithm%20is,important%20application%20of%20computer%20science.
+https://www.geeksforgeeks.org/rabin-karp-algorithm-for-pattern-searching/
+
+
+'''
