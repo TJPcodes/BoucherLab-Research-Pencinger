@@ -3,7 +3,7 @@ import logging
 from collections import defaultdict
 
 # Setup for basic logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message=s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 SPECIAL_TYPES = {
     "ENDOFDICT": 0,
@@ -69,9 +69,9 @@ class ParserFasta:
                 phrase.append(char)
 
                 if len(phrase) > self.params['w']:
-                    hash_val = hash(tuple(phrase[-self.params['w']:]))  # Get hash of the phrase
+                    hash_val = hash(tuple(phrase))  # Get hash of the whole phrase
                     if hash_val not in self.dictionary:
-                        self.dictionary[hash_val] = phrase[-self.params['w']:]
+                        self.dictionary[hash_val] = phrase[:]
                     self.out_file.write(struct.pack('I', hash_val))
                     self.parse_size += 1
 
@@ -81,8 +81,6 @@ class ParserFasta:
             # Handle the final window for the current sequence
             self.finalize_parsing(phrase)
 
-        self.finalize_file(phrase, kr_hash)
-
     def finalize_parsing(self, phrase):
         # Handle the last phrase after processing all characters
         if phrase[0] != SPECIAL_TYPES["DOLLAR"] and len(phrase) >= self.params['w']:
@@ -90,20 +88,11 @@ class ParserFasta:
                 phrase.append(SPECIAL_TYPES["DOLLAR_PRIME"])
             phrase.append(SPECIAL_TYPES["DOLLAR_SEQUENCE"])
 
-            hash_val = hash(tuple(phrase[-self.params['w']]))  # Get hash of the final phrase
+            hash_val = hash(tuple(phrase))  # Get hash of the final phrase
             if hash_val not in self.dictionary:
-                self.dictionary[hash_val] = phrase[-self.params['w']:]
+                self.dictionary[hash_val] = phrase[:]
             self.out_file.write(struct.pack('I', hash_val))
             self.parse_size += 1
-
-    def finalize_file(self, phrase, kr_hash):
-        # Reset phrase for the next sequence
-        phrase.clear()
-        for _ in range(self.params['w'] - 1):
-            phrase.append(SPECIAL_TYPES["DOLLAR_PRIME"])
-        phrase.append(SPECIAL_TYPES["DOLLAR_SEQUENCE"])
-        kr_hash.reset()
-        kr_hash.initialize(phrase)
 
     def close(self):
         # Close the output file and perform cleanup
@@ -135,44 +124,48 @@ params = {'w': 5, 'p': 1}
 prefix = 'example_output'
 parser = ParserFasta(params, prefix)
 parser.init()
-parser.process("path/to/your/fasta_file.fasta")  # Directs processing from a FASTA file path
+parser.process("path/to/fasta_file.fasta")  # Directs processing from a FASTA file path
 parser.close()
 
-
 '''
+
 SUMMARY:
 
 Initialization:
-The `ParserFasta` class is instantiated with specific parameters 
-(`w` for window size, and `p` for modulus value) and an output file prefix. 
+The ParserFasta class is instantiated with specific parameters 
+(w for window size, and p for modulus value) and an output file prefix. 
 This setup prepares the parser to write to an output file named according to the provided prefix, 
 which will contain the parsed results.
 
 Reading and Processing:
-The `process` method employs the `read_fasta` function to read sequences from a specified FASTA file. 
-This method reads the file line by line, collecting sequences. Each sequence retrieved 
-is then processed individually.
+The process method employs the read_fasta function to read sequences from a specified FASTA file. 
+This method reads the file line by line, collecting sequences. Each sequence retrieved is 
+then processed individually.
 
 Sequence Processing:
-Within the `process` method, each sequence undergoes processing where a 
-rolling hash mechanism (Mersenne Karp-Rabin) is applied. As the sequence is read character by character, 
-the hash is continuously updated. When the hash value of the current window (of length `w`) modulo `p` equals zero (trigger condition), 
-the window is converted into a tuple and hashed. This hash is used as a key to store the phrase in a dictionary, 
-and the hash is written to the output file. Trigger string information is logged, and the phrase is reset.
+Within the process method, each sequence undergoes processing where a 
+rolling hash mechanism (Mersenne Karp-Rabin) is applied. As the sequence is read character by character,
+the hash is continuously updated. The hashing now uses the whole phrase 
+instead of just the last w characters. When the hash value of the current 
+window (of length w) modulo p equals zero (trigger condition), the window is converted 
+into a tuple and hashed. This hash is used as a key to store the phrase in a dictionary,
+ and the hash is written to the output file. Trigger string information is logged.
 
 Finalizing Parsing:
-After all characters in a sequence are processed, `finalize_parsing` manages the final window of characters 
-by appending special end symbols and writing the final hash value to the output file. This method ensures that 
-the parsing results are properly recorded, including the last segment of the sequence.
+After all characters in a sequence are processed, 
+finalize_parsing manages the final window of characters by appending special end symbols 
+and writing the final hash value to the output file. This method ensures that the parsing
+ results are properly recorded, including the last segment of the sequence.
 
 Cleanup:
-
-The `close` method is called to ensure the output file is properly closed after all parsing activities are completed, 
-marking the end of file processing and securing the written data.
+The close method is called to ensure the output file is properly 
+closed after all parsing activities are completed, marking the end of file processing 
+and securing the written data. The finalize_file function has been removed as it's deemed unnecessary.
 
 Static Methods:
-`read_fasta`: Reads sequences directly from a FASTA file and returns them as a list, which simplifies the handling of sequence data.
-
+read_fasta: Reads sequences directly from a FASTA file and returns them as a list,
+ which simplifies the handling of sequence data.
+ 
 '''
 
 
