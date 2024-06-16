@@ -81,6 +81,24 @@ class ParserFasta:
             # Handle the final window for the current sequence
             self.finalize_parsing(phrase)
 
+        self.out_file.close()
+
+        # Sort the dictionary by phrases
+        sorted_dict = sorted(self.dictionary.items(), key=lambda item: item[1])
+        sorted_hashes = {hash_val: index for index, (hash_val, _) in enumerate(sorted_dict)}
+
+         # Read the file, replace hashes with positions, and write to a new file
+        with open(self.out_file_name, 'rb') as file:
+            parse_data = file.read()
+
+        new_out_file_name = f"{self.out_file_prefix}.sorted.parse"
+        with open(new_out_file_name, 'wb') as new_file:
+            for i in range(0, len(parse_data), 4):
+                hash_val, = struct.unpack('I', parse_data[i:i+4])
+                new_file.write(struct.pack('I', sorted_hashes[hash_val]))
+
+        logging.info(f"Output file sorted and saved as {new_out_file_name}")
+
     def finalize_parsing(self, phrase):
         # Handle the last phrase after processing all characters
         if phrase[0] != SPECIAL_TYPES["DOLLAR"] and len(phrase) >= self.params['w']:
@@ -128,44 +146,48 @@ parser.process("path/to/fasta_file.fasta")  # Directs processing from a FASTA fi
 parser.close()
 
 '''
+    SUMMARY:
 
-SUMMARY:
+    Initialization:
+    The ParserFasta class is instantiated with specific parameters 
+    (w for window size, and p for modulus value) and an output file prefix. 
+    This setup prepares the parser to write to an output file named according to the provided prefix, 
+    which will contain the parsed results.
 
-Initialization:
-The ParserFasta class is instantiated with specific parameters 
-(w for window size, and p for modulus value) and an output file prefix. 
-This setup prepares the parser to write to an output file named according to the provided prefix, 
-which will contain the parsed results.
+    Reading and Processing:
+    The process method employs the read_fasta function to read sequences from a specified FASTA file. 
+    This method reads the file line by line, collecting sequences. Each sequence retrieved is 
+    then processed individually.
 
-Reading and Processing:
-The process method employs the read_fasta function to read sequences from a specified FASTA file. 
-This method reads the file line by line, collecting sequences. Each sequence retrieved is 
-then processed individually.
+    Sequence Processing:
+    Within the process method, each sequence undergoes processing where a 
+    rolling hash mechanism (Mersenne Karp-Rabin) is applied. As the sequence is read character by character,
+    the hash is continuously updated. The hashing now uses the whole phrase 
+    instead of just the last w characters. When the hash value of the current 
+    window (of length w) modulo p equals zero (trigger condition), the window is converted 
+    into a tuple and hashed. This hash is used as a key to store the phrase in a dictionary,
+    and the hash is written to the output file. Trigger string information is logged.
 
-Sequence Processing:
-Within the process method, each sequence undergoes processing where a 
-rolling hash mechanism (Mersenne Karp-Rabin) is applied. As the sequence is read character by character,
-the hash is continuously updated. The hashing now uses the whole phrase 
-instead of just the last w characters. When the hash value of the current 
-window (of length w) modulo p equals zero (trigger condition), the window is converted 
-into a tuple and hashed. This hash is used as a key to store the phrase in a dictionary,
- and the hash is written to the output file. Trigger string information is logged.
+    Finalizing Parsing:
+    After all characters in a sequence are processed, 
+    finalize_parsing manages the final window of characters by appending special end symbols 
+    and writing the final hash value to the output file. This method ensures that the parsing
+    results are properly recorded, including the last segment of the sequence.
 
-Finalizing Parsing:
-After all characters in a sequence are processed, 
-finalize_parsing manages the final window of characters by appending special end symbols 
-and writing the final hash value to the output file. This method ensures that the parsing
- results are properly recorded, including the last segment of the sequence.
+    Sorting and Replacing:
+    The dictionary is sorted based on the phrases, not the keys. Each hash in the parse is then replaced
+    with the position of the corresponding hash in the newly sorted dictionary. For example, if a hash 213 
+    in the parse corresponds to the fifth dictionary item in the sorted dictionary, 213 is replaced with 4 
+    (using 0-based indexing).
 
-Cleanup:
-The close method is called to ensure the output file is properly 
-closed after all parsing activities are completed, marking the end of file processing 
-and securing the written data. The finalize_file function has been removed as it's deemed unnecessary.
+    Cleanup:
+    The close method is called to ensure the output file is properly 
+    closed after all parsing activities are completed, marking the end of file processing 
+    and securing the written data. The finalize_file function has been removed as it's deemed unnecessary.
 
-Static Methods:
-read_fasta: Reads sequences directly from a FASTA file and returns them as a list,
- which simplifies the handling of sequence data.
- 
+    Static Methods:
+    read_fasta: Reads sequences directly from a FASTA file and returns them as a list,
+    which simplifies the handling of sequence data.
 '''
 
 
