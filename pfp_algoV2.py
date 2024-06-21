@@ -78,6 +78,11 @@ class ParserFasta:
                     # Log position of each trigger string
                     self.trigger_strings[hash_val].append(i - self.params['w'] + 1)
 
+                    # Reset phrase and KR Hash
+                    phrase = phrase[-self.params['w']:]
+                    kr_hash.reset()
+                    kr_hash.initialize(phrase)
+
             # Handle the final window for the current sequence
             self.finalize_parsing(phrase)
 
@@ -100,17 +105,30 @@ class ParserFasta:
         logging.info(f"Output file sorted and saved as {new_out_file_name}")
 
     def finalize_parsing(self, phrase):
-        # Handle the last phrase after processing all characters
+    # Handles the last phrase after processing all characters
         if phrase[0] != SPECIAL_TYPES["DOLLAR"] and len(phrase) >= self.params['w']:
+            # Append w-1 dollar prime, and one dollar seq at the end of each sequence
             for _ in range(self.params['w'] - 1):
                 phrase.append(SPECIAL_TYPES["DOLLAR_PRIME"])
             phrase.append(SPECIAL_TYPES["DOLLAR_SEQUENCE"])
 
-            hash_val = hash(tuple(phrase))  # Get hash of the final phrase
+            # Get hash of the final phrase and add to the dictionary if it's not present
+            hash_val = hash(tuple(phrase))
             if hash_val not in self.dictionary:
                 self.dictionary[hash_val] = phrase[:]
             self.out_file.write(struct.pack('I', hash_val))
             self.parse_size += 1
+
+            # Resets phrase
+            phrase.clear()
+            for _ in range(self.params['w'] - 1):
+                phrase.append(SPECIAL_TYPES["DOLLAR_PRIME"])
+            phrase.append(SPECIAL_TYPES["DOLLAR_SEQUENCE"])
+            
+            # Resets and reinitializes KR hash
+            kr_hash = MersenneKarpRabinHash(self.params['w'])
+            kr_hash.reset()
+            kr_hash.initialize(phrase)
 
     def close(self):
         # Close the output file and perform cleanup
@@ -121,7 +139,7 @@ class ParserFasta:
 
     @staticmethod
     def read_fasta(file_path):
-        # Read a FASTA file and return a list of sequences
+        # Reads a FASTA file and return a list of sequences
         sequences = []
         with open(file_path, 'r') as file:
             current_seq = []
@@ -142,53 +160,68 @@ params = {'w': 5, 'p': 1}
 prefix = 'example_output'
 parser = ParserFasta(params, prefix)
 parser.init()
-parser.process("path/to/fasta_file.fasta")  # Directs processing from a FASTA file path
+parser.process("path/to/fasta_file.fasta") 
 parser.close()
 
-'''
-    SUMMARY:
+"""
 
-    Initialization:
-    The ParserFasta class is instantiated with specific parameters 
-    (w for window size, and p for modulus value) and an output file prefix. 
-    This setup prepares the parser to write to an output file named according to the provided prefix, 
-    which will contain the parsed results.
+Initialization:
 
-    Reading and Processing:
-    The process method employs the read_fasta function to read sequences from a specified FASTA file. 
-    This method reads the file line by line, collecting sequences. Each sequence retrieved is 
-    then processed individually.
+The ParserFasta class is instantiated with specific parameters
+(w for window size, and p for modulus value) and an output file prefix.
+This setup prepares the parser to write to an output file named according to the provided prefix,
+which will contain the parsed results.
 
-    Sequence Processing:
-    Within the process method, each sequence undergoes processing where a 
-    rolling hash mechanism (Mersenne Karp-Rabin) is applied. As the sequence is read character by character,
-    the hash is continuously updated. The hashing now uses the whole phrase 
-    instead of just the last w characters. When the hash value of the current 
-    window (of length w) modulo p equals zero (trigger condition), the window is converted 
-    into a tuple and hashed. This hash is used as a key to store the phrase in a dictionary,
-    and the hash is written to the output file. Trigger string information is logged.
+Reading and Processing:
 
-    Finalizing Parsing:
-    After all characters in a sequence are processed, 
-    finalize_parsing manages the final window of characters by appending special end symbols 
-    and writing the final hash value to the output file. This method ensures that the parsing
-    results are properly recorded, including the last segment of the sequence.
+The process method employs the read_fasta function to read sequences from a specified FASTA file.
+This method reads the file line by line, collecting sequences. Each sequence retrieved is
+then processed individually.
 
-    Sorting and Replacing:
-    The dictionary is sorted based on the phrases, not the keys. Each hash in the parse is then replaced
-    with the position of the corresponding hash in the newly sorted dictionary. For example, if a hash 213 
-    in the parse corresponds to the fifth dictionary item in the sorted dictionary, 213 is replaced with 4 
-    (using 0-based indexing).
+Sequence Processing:
 
-    Cleanup:
-    The close method is called to ensure the output file is properly 
-    closed after all parsing activities are completed, marking the end of file processing 
-    and securing the written data. The finalize_file function has been removed as it's deemed unnecessary.
+Within the process method, each sequence undergoes processing where a
+rolling hash mechanism (Mersenne Karp-Rabin) is applied. As the sequence is read character by character,
+the hash is continuously updated. The hashing now uses the whole phrase
+instead of just the last w characters. When the hash value of the current
+window (of length w) modulo p equals zero (trigger condition), the window is converted
+into a tuple and hashed. This hash is used as a key to store the phrase in a dictionary,
+and the hash is written to the output file. Trigger string information is logged.
 
-    Static Methods:
-    read_fasta: Reads sequences directly from a FASTA file and returns them as a list,
-    which simplifies the handling of sequence data.
-'''
+Phrase Resetting:
+
+After every phrase is added to the dictionary, the phrase variable is reset to contain only the last
+w characters of the just added phrase. Additionally, the Karp-Rabin hash is reset and reinitialized
+with this updated phrase. This ensures that the rolling window correctly continues with the next part
+of the sequence.
+
+Finalizing Parsing:
+
+After all characters in a sequence are processed, finalize_parsing manages the final window of characters
+by appending special end symbols and writing the final hash value to the output file.
+This method ensures that the parsing results are properly recorded, including the last segment of the sequence.
+If the phrase length and content meet specific conditions, the phrase is appended with special symbols,
+hashed, and written to the file. The phrase is then reset, and the Karp-Rabin hash is reinitialized
+to handle any remaining characters correctly.
+
+Sorting and Replacing:
+
+The dictionary is sorted based on the phrases, not the keys. Each hash in the parse is then replaced
+with the position of the corresponding hash in the newly sorted dictionary. For example, if a hash 213
+in the parse corresponds to the fifth dictionary item in the sorted dictionary, 213 is replaced with 4
+(using 0-based indexing).
+
+Cleanup:
+
+The close method is called to ensure the output file is properly closed after all parsing activities are completed,
+marking the end of file processing and securing the written data.
+
+Static Methods:
+
+read_fasta: Reads sequences directly from a FASTA file and returns them as a list,
+which simplifies the handling of sequence data.
+
+"""
 
 
 '''
