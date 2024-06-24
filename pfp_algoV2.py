@@ -65,11 +65,11 @@ class ParserFasta:
             for i, char in enumerate(sequence):
                 char = ord(char)
                 if len(phrase) >= self.params['w']:
-                    kr_hash.update(phrase[-self.params['w'] - 1], char)
+                    kr_hash.update(phrase[-self.params['w']], char)
                 phrase.append(char)
 
                 if len(phrase) > self.params['w']:
-                    hash_val = hash(tuple(phrase))  # Get hash of the whole phrase
+                    hash_val = hash(tuple(phrase)) & 0xFFFFFFFF # Get hash of the whole phrase
                     if hash_val not in self.dictionary:
                         self.dictionary[hash_val] = phrase[:]
                     self.out_file.write(struct.pack('I', hash_val))
@@ -113,7 +113,7 @@ class ParserFasta:
             phrase.append(SPECIAL_TYPES["DOLLAR_SEQUENCE"])
 
             # Get hash of the final phrase and add to the dictionary if it's not present
-            hash_val = hash(tuple(phrase))
+            hash_val = hash(tuple(phrase)) & 0xFFFFFFFF
             if hash_val not in self.dictionary:
                 self.dictionary[hash_val] = phrase[:]
             self.out_file.write(struct.pack('I', hash_val))
@@ -156,12 +156,16 @@ class ParserFasta:
         return sequences
 
 # Usage
-params = {'w': 5, 'p': 1}
+params = {'w': 10, 'p': 3}
 prefix = 'example_output'
-parser = ParserFasta(params, prefix)
+parser = ParserFasta(params, prefix)    
 parser.init()
-parser.process("path/to/fasta_file.fasta") 
-parser.close()
+
+fasta_file_path = r"c:\Users\tyler\OneDrive\Desktop\VSCODE RESEARCH\sequences.fasta"
+parser.process(fasta_file_path)
+parser.close()  
+
+print(f"Trigger strings: {parser.trigger_strings}")
 
 """
 
