@@ -9,7 +9,7 @@ lib.processFASTA.restype = None  # No return value
 
 # Prepare the arguments to pass to the function
 file_path = b"/blue/boucher/tyler.pencinger/sequences.fasta"  
-window_size = 2  # Example window size
+window_size = 3  # Example window size
 base = 31        # Example base (a prime number)
 mod = 1000000007 # Example modulus (a large prime number)
 
